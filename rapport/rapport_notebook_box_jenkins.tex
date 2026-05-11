@@ -17,12 +17,12 @@
 
 \begin{document}
 
-% --- DEBUT DE LA PAGE DE GARDE ---
+
 \begin{titlepage}
     \centering
     \vspace*{1cm}
 
-    \includegraphics[width=0.4\textwidth]{../INSEA_logo.png} \par
+    \includegraphics[width=0.4\textwidth]{INSEA_logo.png} \par
     \vspace{2.5cm}
 
     {\Large \textbf{Module : Séries Chronologiques}}\par
@@ -127,8 +127,8 @@ décembre 1968.
 \toprule
 Échantillon & Période & Taille \\
 \midrule
-Apprentissage & Janvier 1960 -- Décembre 1966 & 84 \\
-Validation & Janvier 1967 -- Décembre 1968 & 24 \\
+Apprentissage & Janvier 1960 - Décembre 1966 & 84 \\
+Validation & Janvier 1967 - Décembre 1968 & 24 \\
 \bottomrule
 \end{tabular}
 \caption{Découpage utilisé dans le notebook.}
@@ -142,7 +142,7 @@ Validation & Janvier 1967 -- Décembre 1968 & 24 \\
 
 \section{Analyse qualitative de la série}
 
-La décomposition est réalisée sur l'échantillon d'apprentissage. Le notebook utilise
+La décomposition est réalisée sur l'échantillon d'apprentissage. On utilise
 une décomposition multiplicative, car l'amplitude des variations saisonnières
 augmente avec le niveau de la série. On considère donc une écriture de la forme :
 \[
@@ -182,7 +182,7 @@ Le notebook applique deux tests :
 
 La série brute n'est pas stationnaire. La transformation logarithmique seule ne suffit
 pas. Après différenciation ordinaire, la série devient stationnaire selon les deux
-tests. Le notebook garde aussi la différenciation saisonnière afin de construire un
+tests. On garde aussi la différenciation saisonnière afin de construire un
 modèle SARIMA avec $d=1$, $D=1$ et une période saisonnière $s=12$.
 
 \begin{table}[H]
@@ -209,8 +209,8 @@ $\Delta \Delta_{12} \log(Y_t)$ & 0,0089 & 0,1000 \\
 
 \section{Corrélogrammes ACF et PACF}
 
-Les corrélogrammes sont tracés sur la série stationnaire. Le notebook utilise les
-retards jusqu'à 40 pour l'ACF et jusqu'à 30 pour la PACF, ce qui respecte la consigne
+Les corrélogrammes sont tracés sur la série stationnaire. On utilise les
+retards jusqu'à 40 pour l'ACF et jusqu'à 30 pour la PACF, ce qui respecte l'idée
 d'avoir un décalage d'ordre au moins égal à 36 pour l'ACF.
 
 La lecture proposée est la suivante : l'ACF et la PACF indiquent la présence de
@@ -225,7 +225,7 @@ confirment la saisonnalité annuelle.
 
 \section{Méthode de Box-Jenkins : modèle SARIMA}
 
-La série présente une saisonnalité de période 12. Le notebook cherche donc un modèle :
+La série présente une saisonnalité de période 12. on cherche donc un modèle :
 \[
 SARIMA(p,1,q)(P,1,Q)_{12}.
 \]
@@ -359,7 +359,7 @@ Déc 1968 & 16 100 & 17 105 & 1 005 & 6,24 \\
 
 \section{Conclusion}
 
-Le notebook montre que la série des ventes de voitures possède une tendance croissante
+On trouve que la série des ventes de voitures possède une tendance croissante
 et une saisonnalité annuelle marquée. La transformation logarithmique permet de
 stabiliser l'amplitude des variations, puis les différenciations ordinaire et
 saisonnière permettent de travailler avec une série stationnaire. La recherche par AIC
