@@ -1,0 +1,11 @@
+# Python environments and caches
+.venv/
+
+.ipynb_checkpoints/
+*.aux
+*.log
+*.lot
+*.out
+
+notebook_box_jenkins.pdf
+scripts/

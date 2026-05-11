@@ -1,0 +1,205 @@
+---
+title: "Methode de Box-Jenkins - Ventes mensuelles de voitures au Quebec"
+output: html_notebook
+---
+
+## Objectif
+
+Ce notebook applique une demarche Box-Jenkins simple sur les ventes mensuelles de
+voitures au Quebec, de janvier 1960 a decembre 1968. La periode 1960-1966 sert a
+l'apprentissage, et 1967-1968 a la validation.
+
+## Installation des packages si besoin
+
+```{r installation, eval=FALSE}
+install.packages(c("forecast", "tseries"))
+```
+
+## Importation
+
+```{r imports}
+library(forecast)
+library(tseries)
+```
+
+```{r paths}
+root <- getwd()
+if (!dir.exists(file.path(root, "data"))) {
+  root <- dirname(root)
+}
+
+data_path <- file.path(root, "data", "ventes_voitures_quebec.txt")
+data <- read.table(data_path, header = TRUE, sep = "\t")
+data$Month <- as.Date(paste0(data$Month, "-01"))
+
+head(data)
+summary(data$Sales)
+```
+
+## Creation de la serie temporelle
+
+```{r ts-object}
+y <- ts(data$Sales, start = c(1960, 1), frequency = 12)
+
+plot(y, main = "Ventes mensuelles de voitures au Quebec", ylab = "Ventes", xlab = "Annee")
+```
+
+## Decoupage apprentissage / validation
+
+```{r split}
+train <- window(y, end = c(1966, 12))
+test <- window(y, start = c(1967, 1))
+
+length(train)
+length(test)
+
+plot(y, main = "Decoupage apprentissage / validation", ylab = "Ventes", xlab = "Annee")
+abline(v = 1967, col = "red", lty = 2)
+```
+
+## Analyse qualitative
+
+La serie presente une tendance croissante et une saisonnalite annuelle. On visualise
+la saisonnalite avec un graphique par mois.
+
+```{r seasonal-plot}
+seasonplot(y, year.labels = TRUE, col = rainbow(9),
+           main = "Profil saisonnier par annee",
+           ylab = "Ventes", xlab = "Mois")
+```
+
+```{r decomposition}
+decomp <- decompose(y, type = "multiplicative")
+plot(decomp)
+```
+
+## Stationnarite
+
+La transformation logarithmique est utilisee car la saisonnalite est plutot
+multiplicative. On applique ensuite une differenciation ordinaire et une
+differenciation saisonniere.
+
+```{r stationarity}
+log_train <- log(train)
+stationary_train <- diff(diff(log_train, lag = 12), differences = 1)
+
+adf.test(train)
+kpss.test(train)
+
+adf.test(log_train)
+kpss.test(log_train)
+
+adf.test(stationary_train)
+kpss.test(stationary_train)
+```
+
+## Correlogrammes ACF et PACF
+
+Les correlogrammes sont traces jusqu'au retard K = 36.
+
+```{r acf-pacf}
+stationary_full <- diff(diff(log(y), lag = 12), differences = 1)
+
+par(mfrow = c(1, 2))
+Acf(stationary_full, lag.max = 36, main = "ACF, K = 36")
+Pacf(stationary_full, lag.max = 36, main = "PACF, K = 36")
+par(mfrow = c(1, 1))
+```
+
+## Estimation du modele SARIMA
+
+On retient le modele SARIMA(3,1,1)(0,1,0)[12], coherent avec le choix obtenu en
+Python par comparaison AIC sur une petite grille.
+
+```{r model}
+fit <- Arima(
+  log_train,
+  order = c(3, 1, 1),
+  seasonal = list(order = c(0, 1, 0), period = 12),
+  include.constant = FALSE
+)
+
+summary(fit)
+checkresiduals(fit)
+```
+
+## Validation sur 1967-1968
+
+```{r validation}
+fc_test <- forecast(fit, h = length(test), level = 95)
+
+pred <- exp(as.numeric(fc_test$mean))
+lower <- exp(as.numeric(fc_test$lower[, 1]))
+upper <- exp(as.numeric(fc_test$upper[, 1]))
+obs <- as.numeric(test)
+
+mae <- mean(abs(obs - pred))
+rmse <- sqrt(mean((obs - pred)^2))
+mape <- mean(abs((obs - pred) / obs)) * 100
+
+metrics <- data.frame(MAE = mae, RMSE = rmse, MAPE = mape)
+metrics
+
+validation <- data.frame(
+  mois = time(test),
+  observe = obs,
+  prevision = pred,
+  borne_inf = lower,
+  borne_sup = upper
+)
+head(validation)
+```
+
+```{r validation-plot}
+plot(y, xlim = c(1960, 1969), ylim = range(c(y, pred, lower, upper)),
+     main = "Validation des previsions", ylab = "Ventes", xlab = "Annee")
+lines(test, col = "red", lwd = 2)
+lines(ts(pred, start = c(1967, 1), frequency = 12), col = "darkgreen", lwd = 2, lty = 2)
+lines(ts(lower, start = c(1967, 1), frequency = 12), col = "darkgreen", lty = 3)
+lines(ts(upper, start = c(1967, 1), frequency = 12), col = "darkgreen", lty = 3)
+legend("topleft",
+       legend = c("Serie", "Validation reelle", "Prevision"),
+       col = c("black", "red", "darkgreen"),
+       lty = c(1, 1, 2),
+       bty = "n")
+```
+
+## Prevision finale pour 1969
+
+On reestime le modele sur toute la serie, puis on prevoit les 12 mois suivants.
+
+```{r final-forecast}
+fit_final <- Arima(
+  log(y),
+  order = c(3, 1, 1),
+  seasonal = list(order = c(0, 1, 0), period = 12),
+  include.constant = FALSE
+)
+
+fc_1969 <- forecast(fit_final, h = 12, level = 95)
+
+previsions_1969 <- data.frame(
+  mois = seq(as.Date("1969-01-01"), by = "month", length.out = 12),
+  prevision = exp(as.numeric(fc_1969$mean)),
+  borne_inf = exp(as.numeric(fc_1969$lower[, 1])),
+  borne_sup = exp(as.numeric(fc_1969$upper[, 1]))
+)
+
+previsions_1969$prevision <- round(previsions_1969$prevision, 0)
+previsions_1969$borne_inf <- round(previsions_1969$borne_inf, 0)
+previsions_1969$borne_sup <- round(previsions_1969$borne_sup, 0)
+previsions_1969
+```
+
+```{r final-plot}
+plot(y, xlim = c(1960, 1970), ylim = range(c(y, exp(fc_1969$mean))),
+     main = "Prevision finale pour 1969", ylab = "Ventes", xlab = "Annee")
+lines(exp(fc_1969$mean), col = "darkgreen", lwd = 2, lty = 2)
+```
+
+## Conclusion
+
+La serie n'est pas stationnaire au depart, car elle contient une tendance et une
+saisonnalite annuelle. Apres logarithme, differenciation ordinaire et differenciation
+saisonniere, le modele SARIMA(3,1,1)(0,1,0)[12] donne une tres bonne validation :
+l'erreur relative moyenne est inferieure a 1 %.
